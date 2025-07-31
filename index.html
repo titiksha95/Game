@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Love Adventure Game</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #ff6b9d, #c44569, #6c5ce7);
+      font-family: 'Press Start 2P', cursive;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .game-container {
+      width: 100%;
+      max-width: 900px;
+      height: 90vh;
+      max-height: 600px;
+      background: #87CEEB;
+      border: 4px solid #333;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to bottom, #87CEEB 0%, #98FB98 100%);
+    }
+
+    .ui {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      color: white;
+      font-size: clamp(8px, 1.5vw, 14px);
+      z-index: 10;
+      text-shadow: 2px 2px 0px #000;
+    }
+
+    .love-message,
+    .game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 182, 193, 0.95);
+      border: 3px solid #ff69b4;
+      padding: 20px 30px;
+      border-radius: 15px;
+      text-align: center;
+      color: #8b0000;
+      display: none;
+      z-index: 100;
+      max-width: 80%;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .game-over {
+      font-size: clamp(12px, 2.5vw, 18px);
+    }
+
+    .mobile-controls {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      display: none;
+      gap: 10px;
+      z-index: 20;
+    }
+
+    .control-btn {
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #333;
+      border-radius: 8px;
+      padding: 10px 15px;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 12px;
+      color: #333;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+      box-shadow: 0 3px #999;
+      transition: 0.2s ease;
+    }
+
+    .control-btn:active {
+      transform: scale(0.95);
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: none;
+    }
+
+    .heart {
+      color: #ff69b4;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+
+    @media (max-width: 768px) {
+      .mobile-controls {
+        display: flex;
+      }
+    }
+
+    @media (max-height: 600px) {
+      .game-container {
+        height: 95vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="ui">
+      <div>Score: <span id="score">0</span></div>
+      <div><span class="heart">♥</span> Lives: <span id="lives">3</span></div>
+      <div>Level: <span id="level">1</span></div>
+    </div>
+
+    <div class="mobile-controls">
+      <div class="control-btn" id="leftBtn">←</div>
+      <div class="control-btn" id="jumpBtn">JUMP</div>
+      <div class="control-btn" id="rightBtn">→</div>
+    </div>
+
+    <div id="loveMessage" class="love-message">
+      <div id="messageText"></div>
+      <div style="margin-top: 15px; font-size: 60%;">Tap anywhere to continue</div>
+    </div>
+
+    <div id="gameOver" class="game-over">
+      <div>Game Over!</div>
+      <div style="margin-top: 15px; font-size: 70%;">But my love for you is infinite! ♥</div>
+      <div style="margin-top: 15px; font-size: 50%;">Press R or tap here to restart</div>
+    </div>
+  </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Make canvas responsive
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            // Update game scale
+            gameScale.x = canvas.width / 800;
+            gameScale.y = canvas.height / 600;
+        }
+
+        let gameScale = { x: 1, y: 1 };
+        
+        // Initial resize
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Game state
+        let gameState = {
+            score: 0,
+            lives: 3,
+            level: 1,
+            gameRunning: true,
+            showingMessage: false
+        };
+
+        // Love messages
+        const loveMessages = [
+            "You make my heart skip like this little character! ♥",
+            "Every level with you is an adventure! ♥",
+            "You're my player 2 in this game of life! ♥",
+            "Just like collecting hearts, I collect memories with you! ♥",
+            "You're the power-up that makes me stronger! ♥",
+            "My love for you is like this game - endless! ♥",
+            "You're my favorite achievement to unlock! ♥",
+            "Together we can conquer any boss battle! ♥",
+            "You're the treasure worth finding every time! ♥",
+            "Our love story is the best game ever made! ♥",
+            "You're my favorite cheat code - you make everything better! ♥",
+            "Like this character, you make me jump for joy! ♥"
+        ];
+
+        // Player object (scaled coordinates)
+        const player = {
+            x: 50,
+            y: 400,
+            width: 32,
+            height: 32,
+            velX: 0,
+            velY: 0,
+            speed: 6,
+            jumpPower: 16,
+            gravity: 0.8,
+            grounded: false,
+            color: '#ff69b4'
+        };
+
+        // Game objects
+        let platforms = [];
+        let hearts = [];
+        let enemies = [];
+        let particles = [];
+        let clouds = [];
+
+        // Input handling - improved responsiveness
+        const keys = {};
+        const touch = { left: false, right: false, jump: false };
+
+        // Keyboard events
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            handleInput();
+            e.preventDefault();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+            e.preventDefault();
+        });
+
+        // Touch controls for mobile
+        function setupTouchControls() {
+            const leftBtn = document.getElementById('leftBtn');
+            const rightBtn = document.getElementById('rightBtn');
+            const jumpBtn = document.getElementById('jumpBtn');
+
+            // Prevent default touch behaviors
+            [leftBtn, rightBtn, jumpBtn].forEach(btn => {
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+
+            leftBtn.addEventListener('touchstart', () => touch.left = true);
+            leftBtn.addEventListener('touchend', () => touch.left = false);
+            leftBtn.addEventListener('mousedown', () => touch.left = true);
+            leftBtn.addEventListener('mouseup', () => touch.left = false);
+
+            rightBtn.addEventListener('touchstart', () => touch.right = true);
+            rightBtn.addEventListener('touchend', () => touch.right = false);
+            rightBtn.addEventListener('mousedown', () => touch.right = true);
+            rightBtn.addEventListener('mouseup', () => touch.right = false);
+
+            jumpBtn.addEventListener('touchstart', () => touch.jump = true);
+            jumpBtn.addEventListener('touchend', () => touch.jump = false);
+            jumpBtn.addEventListener('mousedown', () => touch.jump = true);
+            jumpBtn.addEventListener('mouseup', () => touch.jump = false);
+        }
+
+        // Handle input from any source
+        function handleInput() {
+            if (gameState.showingMessage) {
+                hideMessage();
+            }
+            if (!gameState.gameRunning && (keys['KeyR'] || keys['Enter'])) {
+                restartGame();
+            }
+        }
+
+        // Click/touch to dismiss messages and restart
+        document.addEventListener('click', handleInput);
+        document.addEventListener('touchstart', handleInput);
+
+        // Initialize level
+        function initLevel() {
+            platforms = [
+                {x: 0, y: 550, width: 800, height: 50, color: '#8B4513'},
+                {x: 200, y: 450, width: 120, height: 20, color: '#8B4513'},
+                {x: 400, y: 350, width: 120, height: 20, color: '#8B4513'},
+                {x: 600, y: 250, width: 120, height: 20, color: '#8B4513'},
+                {x: 80, y: 300, width: 100, height: 20, color: '#8B4513'},
+                {x: 320, y: 200, width: 100, height: 20, color: '#8B4513'},
+                {x: 520, y: 150, width: 100, height: 20, color: '#8B4513'}
+            ];
+
+            hearts = [
+                {x: 230, y: 420, width: 20, height: 20, collected: false},
+                {x: 430, y: 320, width: 20, height: 20, collected: false},
+                {x: 630, y: 220, width: 20, height: 20, collected: false},
+                {x: 110, y: 270, width: 20, height: 20, collected: false},
+                {x: 350, y: 170, width: 20, height: 20, collected: false},
+                {x: 550, y: 120, width: 20, height: 20, collected: false}
+            ];
+
+            enemies = [
+                {x: 300, y: 525, width: 25, height: 25, velX: -2, color: '#8b0000', minX: 200, maxX: 400},
+                {x: 500, y: 325, width: 25, height: 25, velX: 1.5, color: '#8b0000', minX: 400, maxX: 520}
+            ];
+
+            // Initialize floating clouds
+            clouds = [
+                {x: 100, y: 80, size: 35, speed: 0.5},
+                {x: 600, y: 120, size: 30, speed: 0.3},
+                {x: 300, y: 60, size: 25, speed: 0.7}
+            ];
+        }
+
+        // Scaled drawing functions
+        function scaleX(x) { return x * gameScale.x; }
+        function scaleY(y) { return y * gameScale.y; }
+        function scaleSize(size) { return size * Math.min(gameScale.x, gameScale.y); }
+
+        // Draw cute character - improved
+        function drawPlayer() {
+            ctx.save();
+            
+            const x = scaleX(player.x + 16);
+            const y = scaleY(player.y + 20);
+            const size = scaleSize(14);
+            
+            // Add slight bounce animation when moving
+            const bounce = player.grounded && Math.abs(player.velX) > 1 ? Math.sin(Date.now() * 0.02) * 2 : 0;
+            
+            // Body (pink circle with gradient)
+            const gradient = ctx.createRadialGradient(x, y - 2, 0, x, y - 2, size);
+            gradient.addColorStop(0, '#ffb6c1');
+            gradient.addColorStop(1, player.color);
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(x, y + bounce, size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Eyes with blink animation
+            const blink = Math.sin(Date.now() * 0.003) > 0.98 ? 0.5 : 1;
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(x - scaleSize(5), y - scaleSize(5) + bounce, scaleSize(2), 0, Math.PI * 2 * blink);
+            ctx.arc(x + scaleSize(5), y - scaleSize(5) + bounce, scaleSize(2), 0, Math.PI * 2 * blink);
+            ctx.fill();
+            
+            // Smile
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = scaleSize(2);
+            ctx.beginPath();
+            ctx.arc(x, y - scaleSize(2) + bounce, scaleSize(6), 0.2 * Math.PI, 0.8 * Math.PI);
+            ctx.stroke();
+            
+            // Cute ears with inner pink
+            ctx.fillStyle = '#ff1493';
+            ctx.beginPath();
+            ctx.arc(x - scaleSize(8), y - scaleSize(12) + bounce, scaleSize(4), 0, Math.PI * 2);
+            ctx.arc(x + scaleSize(8), y - scaleSize(12) + bounce, scaleSize(4), 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#ffb6c1';
+            ctx.beginPath();
+            ctx.arc(x - scaleSize(8), y - scaleSize(12) + bounce, scaleSize(2), 0, Math.PI * 2);
+            ctx.arc(x + scaleSize(8), y - scaleSize(12) + bounce, scaleSize(2), 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        // Draw animated heart
+        function drawHeart(heart) {
+            if (heart.collected) return;
+            
+            ctx.save();
+            const x = scaleX(heart.x + 10);
+            const y = scaleY(heart.y + 10);
+            const size = scaleSize(6);
+            
+            // Floating and pulsing animation
+            const float = Math.sin(Date.now() * 0.005 + heart.x * 0.01) * scaleSize(3);
+            const pulse = 1 + Math.sin(Date.now() * 0.008) * 0.2;
+            
+            ctx.translate(x, y + float);
+            ctx.scale(pulse, pulse);
+            
+            // Heart shape with glow
+            ctx.shadowColor = '#ff69b4';
+            ctx.shadowBlur = scaleSize(10);
+            ctx.fillStyle = '#ff1493';
+            
+            ctx.beginPath();
+            ctx.arc(-size/2, -size/3, size/2, 0, Math.PI * 2);
+            ctx.arc(size/2, -size/3, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.8, size/6);
+            ctx.lineTo(0, size * 0.8);
+            ctx.lineTo(size * 0.8, size/6);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        // Draw platform with texture
+        function drawPlatform(platform) {
+            const x = scaleX(platform.x);
+            const y = scaleY(platform.y);
+            const w = scaleX(platform.width);
+            const h = scaleY(platform.height);
+            
+            ctx.fillStyle = platform.color;
+            ctx.fillRect(x, y, w, h);
+            
+            // Add texture lines
+            ctx.fillStyle = '#654321';
+            for (let i = 0; i < platform.width; i += 25) {
+                ctx.fillRect(x + scaleX(i), y, scaleSize(2), h);
+            }
+            
+            // Top highlight
+            ctx.fillStyle = '#a0522d';
+            ctx.fillRect(x, y, w, scaleSize(3));
+        }
+
+        // Draw enemy with simple animation
+        function drawEnemy(enemy) {
+            const x = scaleX(enemy.x);
+            const y = scaleY(enemy.y);
+            const w = scaleX(enemy.width);
+            const h = scaleY(enemy.height);
+            
+            // Body
+            ctx.fillStyle = enemy.color;
+            ctx.fillRect(x, y, w, h);
+            
+            // Eyes
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + scaleX(5), y + scaleY(5), scaleX(4), scaleY(4));
+            ctx.fillRect(x + scaleX(16), y + scaleY(5), scaleX(4), scaleY(4));
+            
+            // Pupils
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + scaleX(6), y + scaleY(6), scaleX(2), scaleY(2));
+            ctx.fillRect(x + scaleX(17), y + scaleY(6), scaleX(2), scaleY(2));
+        }
+
+        // Update player with better physics
+        function updatePlayer() {
+            if (!gameState.gameRunning) return;
+
+            // Handle input with improved responsiveness
+            const isMovingLeft = keys['ArrowLeft'] || touch.left;
+            const isMovingRight = keys['ArrowRight'] || touch.right;
+            const isJumping = keys['Space'] || touch.jump;
+
+            if (isMovingLeft) {
+                player.velX = Math.max(player.velX - 1, -player.speed);
+            } else if (isMovingRight) {
+                player.velX = Math.min(player.velX + 1, player.speed);
+            } else {
+                player.velX *= 0.85; // Better friction
+            }
+
+            if (isJumping && player.grounded) {
+                player.velY = -player.jumpPower;
+                player.grounded = false;
+            }
+
+            // Apply gravity
+            player.velY += player.gravity;
+            player.velY = Math.min(player.velY, 20); // Terminal velocity
+
+            // Update position
+            player.x += player.velX;
+            player.y += player.velY;
+
+            // Keep player in bounds
+            if (player.x < 0) {
+                player.x = 0;
+                player.velX = 0;
+            }
+            if (player.x > 800 - player.width) {
+                player.x = 800 - player.width;
+                player.velX = 0;
+            }
+
+            // Platform collision with better detection
+            player.grounded = false;
+            for (let platform of platforms) {
+                if (player.x < platform.x + platform.width &&
+                    player.x + player.width > platform.x &&
+                    player.y < platform.y + platform.height &&
+                    player.y + player.height > platform.y) {
+                    
+                    // Landing on top
+                    if (player.velY > 0 && player.y < platform.y - player.height + 10) {
+                        player.y = platform.y - player.height;
+                        player.velY = 0;
+                        player.grounded = true;
+                    }
+                    // Hitting from below
+                    else if (player.velY < 0 && player.y > platform.y) {
+                        player.y = platform.y + platform.height;
+                        player.velY = 0;
+                    }
+                }
+            }
+
+            // Check if player fell off screen
+            if (player.y > 650) {
+                gameState.lives--;
+                updateUI();
+                if (gameState.lives <= 0) {
+                    gameOver();
+                } else {
+                    resetPlayerPosition();
+                }
+            }
+        }
+
+        // Update enemies with boundary constraints
+        function updateEnemies() {
+            for (let enemy of enemies) {
+                enemy.x += enemy.velX;
+                
+                // Bounce within set boundaries
+                if (enemy.x <= enemy.minX || enemy.x >= enemy.maxX - enemy.width) {
+                    enemy.velX = -enemy.velX;
+                }
+                
+                // Check collision with player
+                if (player.x < enemy.x + enemy.width &&
+                    player.x + player.width > enemy.x &&
+                    player.y < enemy.y + enemy.height &&
+                    player.y + player.height > enemy.y) {
+                    
+                    gameState.lives--;
+                    updateUI();
+                    if (gameState.lives <= 0) {
+                        gameOver();
+                    } else {
+                        resetPlayerPosition();
+                    }
+                }
+            }
+        }
+
+        // Check heart collection
+        function checkHeartCollection() {
+            for (let heart of hearts) {
+                if (!heart.collected &&
+                    player.x < heart.x + heart.width &&
+                    player.x + player.width > heart.x &&
+                    player.y < heart.y + heart.height &&
+                    player.y + player.height > heart.y) {
+                    
+                    heart.collected = true;
+                    gameState.score += 150;
+                    showLoveMessage();
+                    
+                    // Create more particles
+                    for (let i = 0; i < 15; i++) {
+                        particles.push({
+                            x: heart.x + 10,
+                            y: heart.y + 10,
+                            velX: (Math.random() - 0.5) * 8,
+                            velY: (Math.random() - 0.5) * 8,
+                            life: 40,
+                            color: Math.random() > 0.5 ? '#ff69b4' : '#ffb6c1'
+                        });
+                    }
+                }
+            }
+        }
+
+        // Update particles
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.velX;
+                p.y += p.velY;
+                p.velY += 0.3; // Gravity on particles
+                p.life--;
+                
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // Update clouds
+        function updateClouds() {
+            for (let cloud of clouds) {
+                cloud.x += cloud.speed;
+                if (cloud.x > 850) {
+                    cloud.x = -50;
+                }
+            }
+        }
+
+        // Draw background with moving clouds
+        function drawBackground() {
+            // Sky gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#98FB98');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Moving clouds
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            for (let cloud of clouds) {
+                const x = scaleX(cloud.x);
+                const y = scaleY(cloud.y);
+                const size = scaleSize(cloud.size);
+                
+                ctx.beginPath();
+                ctx.arc(x - size/2, y, size/2, 0, Math.PI * 2);
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.arc(x + size/2, y, size/2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Draw particles
+        function drawParticles() {
+            for (let p of particles) {
+                ctx.globalAlpha = p.life / 40;
+                ctx.fillStyle = p.color;
+                const x = scaleX(p.x);
+                const y = scaleY(p.y);
+                const size = scaleSize(4);
+                ctx.fillRect(x, y, size, size);
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // Show love message
+        function showLoveMessage() {
+            const message = loveMessages[Math.floor(Math.random() * loveMessages.length)];
+            document.getElementById('messageText').innerHTML = message;
+            document.getElementById('loveMessage').style.display = 'block';
+            gameState.showingMessage = true;
+        }
+
+        // Hide message
+        function hideMessage() {
+            document.getElementById('loveMessage').style.display = 'none';
+            gameState.showingMessage = false;
+        }
+
+        // Reset player position with invincibility frames
+        function resetPlayerPosition() {
+            player.x = 50;
+            player.y = 400;
+            player.velX = 0;
+            player.velY = 0;
+            player.grounded = false;
+        }
+
+        // Game over
+        function gameOver() {
+            gameState.gameRunning = false;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        // Restart game
+        function restartGame() {
+            gameState = {
+                score: 0,
+                lives: 3,
+                level: 1,
+                gameRunning: true,
+                showingMessage: false
+            };
+            
+            resetPlayerPosition();
+            initLevel();
+            document.getElementById('gameOver').style.display = 'none';
+            hideMessage();
+            particles = [];
+        }
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('lives').textContent = gameState.lives;
+            document.getElementById('level').textContent = gameState.level;
+        }
+
+        // Main game loop with better performance
+        let lastTime = 0;
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background
+            drawBackground();
+            
+            // Update game objects
+            if (!gameState.showingMessage && gameState.gameRunning) {
+                updatePlayer();
+                updateEnemies();
+                checkHeartCollection();
+            }
+            updateParticles();
+            updateClouds();
+
+            // Draw everything
+            platforms.forEach(drawPlatform);
+            hearts.forEach(drawHeart);
+            enemies.forEach(drawEnemy);
+            drawPlayer();
+            drawParticles();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize everything
+        setupTouchControls();
+        initLevel();
+        updateUI();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
