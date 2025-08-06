@@ -14,8 +14,8 @@ A fun 2D side-scrolling game where you collect hearts, avoid obstacles, and leve
 
 1. Download or clone the repository:
    ```bash
-   git clone https://github.com/your-username/love-adventure-game.git
-   cd love-adventure-game
+   git clone https://github.com/titiksha95/Game.git
+   cd Game
    ```
 
 2. Open `index.html` in your browser:
@@ -23,22 +23,7 @@ A fun 2D side-scrolling game where you collect hearts, avoid obstacles, and leve
    open index.html
    ```
 
-## 💡 Customization Ideas
-
-- Add background music or sound effects 🎶  
-- Use custom sprite characters instead of basic shapes 🧍‍♀️🧍‍♂️  
-- Add more levels and increasing difficulty 🔥  
-- Show a leaderboard or high score system 🏆  
-
-## 📷 Screenshots
-
-_Add screenshots or GIFs here if available._
-
 ## 🧑‍💻 Author
 
-Made with 💖 by [Your Name]  
-Feel free to contribute, remix, or use this for a Valentine’s Day project or portfolio piece!
+Made with 💖 by Titiksha  
 
-## 📄 License
-
-MIT License – free to use and modify. Love is meant to be shared 💌
